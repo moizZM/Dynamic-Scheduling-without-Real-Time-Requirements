@@ -1,0 +1,103 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+
+\usepackage[backend=bibtex]{biblatex}
+\addbibresource{References.bib}
+
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{ Dynamic Scheduling without Real-Time Requirements\\
+
+}
+
+\author{\IEEEauthorblockN{ Moiz Zaheer Malik}
+\IEEEauthorblockA{\textit{ B.Eng. Electronic Engineering} \\
+\textit{Hochschule Hamm-Lippstadt}\\
+Lippstadt, Germany \\
+moiz-zaheer.malik@stud.hshl.de}
+
+}
+\maketitle
+
+
+\begin{abstract}
+High-Level Synthesis (HLS) usually uses fixed scheduling to meet timing and performance goals. But when real-time deadlines aren’t required, we can use dynamic scheduling to improve energy efficiency. Instead of assigning operations to specific clock cycles ahead of time, dynamic methods can decide the order and timing of tasks during runtime. This helps reduce power usage by cutting down on unnecessary activity and allowing parts of the hardware to turn off when they’re not needed.
+
+This paper looks at a dynamic scheduling method called the Power Scheduler, proposed by Rettberg and Rammig\cite{Rettberg2006}. Their approach uses ASAP and ALAP scheduling to analyze the Control/Data Flow Graph (CDFG), then builds a compatibility graph to group operations that can be powered down together. This way, operations with flexible timing (called mobility) can be rescheduled to save energy without breaking the program.
+
+A case study on MPEG-2 color conversion using the MACT self-timed pipeline shows that this method can cut power use by about 10-15\%, with only small performance losses\cite{Kaeslin2010}. Compared to regular static scheduling, this approach is a better fit for energy-conscious embedded system designs.
+
+\end{abstract}
+
+
+\begin{IEEEkeywords}
+dynamic scheduling, high-level synthesis, power optimization, partitioning, CDFG, MACT architecture
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+In today's digital world, many systems and wearable devices like smart watches and smartphones, and other embedded electronics are expected tp perform more tasks while using really little energy and power. Especially in battery powered and portable devices power efficincy is just as important as speed or performance\cite{Chandrakasan1992}. 
+
+\subsection{High Level Synthesis and the Role of Dynamic Scheduling}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{image.png}
+\caption{Design phases of the High-Level Synthesis \cite{Rettberg2006}}
+    \label{fig:enter-label}
+\end{figure}
+
+Dynamic schedulling is a really important technique in modern hardware design, mostly in the domain of High Level Synthesis (HLS)\cite{Rettberg2006}, where we convert a high level description like (C or SystemC code) into  low-level Hardware Description Languages like (VHDL / Verligo).
+
+The key advantage of of HLS is that it lets  the designers to work at a high level of abstraction. insted of worring and focusing on gates, flipflops, and clock cycles, it helps them to describe the algorithms and the behaviour of system more naturally and makes it simple for them, just like how the write software. The HLS tool then translates that high level description into the register transfer level (RTL) code, which is then synthesized into gate level hardware\cite{Rettberg2006}.  
+Dynamic scheduling without real time requirments focuses on improving performance metrics such as power consuption as we said before which is one of the most important requirments in todays era, apart from this it also focuses on resourse utilization and area\cite{Rettberg2006}
+
+\subsection{Classification of Real Time Systems}
+
+Real times system are generally categorized into three main types: \textbf{Hard, firm and soft} Real Rime. 
+
+\textbf{Hard real time system:} which requires strict time constraints. Each operation must be completed within a spacific time frame to ensure system correctness and safty common domain like automotive control, medicle monitoring, aerospac or industrial automation. in these industries timing violation can lead to system failure, so schedulers are perticullarly designed to guarantee such deadlines\cite{ Chen2002, Yoon2009, hamdaoui1995}.
+
+\textbf{firm real time system:} by contrast, consider a task useless if the deadline is missed, but occasional deadline mmisses do not cause system big errors.\cite{ Yoon2009, hamdaoui1995} 
+
+\textbf{soft real time systems:} such as vedio games, and in many non real time system such as porttable media player, consumer electrons and whireless sensor nodes, tasks do not need strict timing constrants. Insted what is important is that the overall throughput thatis the rate at which usefull work is completed over time. these systems allow greater flexibility in scheduling, which can usefull for improving other areas such as power consumption, area and hardware resuse\cite{Monteiro1996, Yoon2009, hamdaoui1995}. 
+
+\subsection{Limitations of Traditional Scheduling}
+
+This report focuses on task scheduling techniques suitable for firm and soft real time systems, where meeting every deadline is not important but the quality should stay high and perform well. traditional real times system schceduling algorithms, such as Rate  Monotonic  (RMS) and Earliest deadline First (EDF), assume thatt all deadlines must be met and may not perform welll under overload condditions common in soft real time envirments\cite{Koren1995}
+
+\subsection{Dynamic Scheduling Without Real Time Constraints}
+
+To address this, researches have introduced Dynamic scheduling without realtime requirments, that allow certain tasks to be skipped or delayed in order to keep the system stable under laod. One such approch is the Skip Over model, which allowes he system to skip executing spacific tasks. Another is Red as Late as Possible (RLP) algorithm, which combines deadlines deferral with selective execution to mmaximize the number of useful task completions while still preventing system overload\cite{Yoon2009}
+
+In systems without hard tming constraints, dynamic scheduling witout real time requirments becomes a really powerful method fo managing tasks\cite{Rettberg2006, Monteiro1996}. Unlike systems that need operations to occure at exact clock cycles, dynamic schedulling gives the system more freedom\cite{Rettberg2006}. the scheduler can decide when each task should run based on current conditions rather then following a fixed timeline\cite{Chen2002}. that means tasks can be delayed or moved forward depending on resource availabilit or system load\cite{Rettberg2006, Monteiro1996}. as a result, the system can operate moree smoothly, avoid unecessary waiting, and make better use of available resources\cite{Rettberg2006}. by not being locked on a rigid schedule, the system gains flexibility, which can lead to improvements in performance and efficincy without the need to meet deadlines\cite{Rettberg2006}.
+
+\subsection{PowerAware Scheduling Using Compatibility Graphs}
+
+Scheduling strategy introduced by Achim Rettberg in his dissertation Low Power Driven High-Level Synthesis for Dedicated Architectures\cite{Rettberg2006}. in his  works the statgey he represents where the system behaviour is broken into multiple execution paths, each representing a distinct flow op operations derived from control and data flow analysis. these paths are examined to determine mutual exclusivity that is sets of operations that are never active at the same time. 
+
+to find these mutally exclusive groups, Rettberg introduced the use of compatibility graph, where each node represents a path and edges indicate exclusivity. using clique detection algorithms, the scheduler indentifies sets of paths that can be grouped into power managed partions. Each partition is assigned a switch controller, which turns it on or off based on the current control flow conditions at runtime. Because only one of these partitions is active at a time, the system can significantly reduce dynamic and static power consumption without requiring any real-time timing guarantees\cite{Rettberg2006} 
+
+\section{Methodology}
+\section{Constraints and Cost Function}
+
+
+
+\section{}
+\section{}
+
+\printbibliography
+
+\vspace{12pt}
+\color{red}
+\end{document}
