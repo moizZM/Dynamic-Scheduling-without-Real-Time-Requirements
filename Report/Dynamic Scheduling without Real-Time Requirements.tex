@@ -1,0 +1,190 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+
+\usepackage[backend=bibtex]{biblatex}
+\addbibresource{References.bib}
+
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{ Dynamic Scheduling without Real-Time Requirements\\
+
+}
+
+\author{\IEEEauthorblockN{ Moiz Zaheer Malik}
+\IEEEauthorblockA{\textit{ B.Eng. Electronic Engineering} \\
+\textit{Hochschule Hamm-Lippstadt}\\
+Lippstadt, Germany \\
+moiz-zaheer.malik@stud.hshl.de}
+
+}
+\maketitle
+
+
+\begin{abstract}
+Dynamic scheduling in hardware refers to the run-time determination of operation execution order and timing, as opposed to a fixed pre-determined (static) schedule decided at compile time. This report examines dynamic scheduling techniques in digital hardware design, specifically in the context of high-level synthesis (HLS) for systems without hard real-time constraints. We focus on hardware implementation aspects, including the formal models used to represent scheduling (such as control-dataflow graphs), the design of scheduler control logic (finite-state machines, arbitration units), and data path organization to support run-time flexibility. We review the distinctions between static and dynamic scheduling in terms of design methodology and model-based design, and discuss how dynamic scheduling is formally modeled and realized in hardware. An illustrative use case demonstrates a dynamic hardware scheduler adapting to variable execution latency. We evaluate the benefits (improved average-case performance, resource utilization, power savings) and trade-offs (hardware overhead, increased design complexity, reduced timing predictability) of dynamic scheduling versus static scheduling. The report concludes that for systems without strict real-time deadlines, dynamic scheduling can significantly enhance flexibility and efficiency in hardware, at the cost of additional architectural complexity.\cite{Ha2017,DeMicheli1994,Rettberg2006}
+\end{abstract}
+
+\section{Introduction}
+
+High level Synthesis (HLS) Takes behavioral discription of algorithms and turns it into a hardware design. One of the important role of HLS is scheduling. Figure \ref{Typical HLS flow} illustrates the typical HLS flow, where after parsing and CDFG construction, the Scheduling assigns each operation in the design a specific clock cycle, It makes the decision which clockcycle and which hardware unit each operation uses. Most HLS tools produce a static schedule (every thing is pre predicted) when it's run. And in result we get fixed sequance of steps which is known as finate state machine(FSM) that controls the data flow through hardware \cite{Ha2017}. Static Scheduling is esay to understand and like because it gives predictable timing, which is why  its used in real time or safty critical systems where you need to be sure tasks finish by hard deadline \cite{Ha2017}. But it also has drawbacks such has it wasting time, when a operation or task finishes earlier than the worst case assumption, that keeps the deadline safe but it hurts the average performaance of the system an leaves the hardware sitting unused \cite{Scheffer2016}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\linewidth]{Typical HLS flow.jpeg}
+    \caption{Typical HLS flow \cite{Scheffer2016}}
+    \label{Typical HLS flow}
+\end{figure}
+
+\textit{Dynamic Schedulin } has a different way of scheduling insted of following a strict predetermined timline like \textit{Static Scheduling} it makes the decision on the fly, it reacts to actual data avilability or operation completion events \cite{Ha2017,DeMicheli1994,Rettberg2006}. This is a great approch for systems where you dont need real time requirments, and the goal is to keeping the hardware busy and gettign as much as possible done is more important than worst case timing guarntees \cite{Ha2017,Rettberg2006}. By letting tasks start whenever they are ready during execution, dynamic scheduling can take advantages of chnages that  hhappen at run time and allow multiple tasks to run in parallel and this is somthing static scheduling can not do \cite{Ha2017,Rettberg2006}. For example if there are some tasks that take more or less time depending on their data, dynamic scheduling here can handle them really well by starting tasks as soon as they are reay, insted of waiting for the fixed time slot \cite{Rettberg2006}. However this flexibility of dynamic scheduling requires extra hardware to control the scheduling, like (e.g., scheduler circuits, arbiters) which makes this makes the system less prdictable, which makes testing and verifying more difficult \cite{DeMicheli1994}. but in many modern systems such as vedio games and vedio processors this is acceptable because strict timing is not as important as over all performance\cite{Ha2017, Scheffer2016} 
+
+This report looks at how dynamic scheduling works in hardware systems, with a focus on how it's modeled and how it can be built using hardware components. In Section II, we explain the difference between static and dynamic scheduling and look at important background work and definitions. Section III introduces formal models, such as control dataflow graphs, that are used to describe scheduling problems and how dynamic scheduling fits into these models. Section IV covers how dynamic scheduling is built in hardware, including the use of control FSMs (finite state machines), arbiters for shared resources, and flexible data paths that adjust during run time. Section V gives a practical example of a dynamic scheduling method running on real hardware.  In Section VI, we evaluate and compare dynamic and static scheduling, discussing the benefits, limitations, and trade offs of each approach. The report ends with a summary in Section VII.
+
+\section{Background: Static vs. Dynamic Scheduling in Hardware}
+
+\subsection{Definitions and Model-Based Design}
+
+In hardware design, \textit{static scheduling } means that the order and timing of operations are decided before the system runs during the compile time. for example, using a data flow graph or control flow graph, the HSL tool will assign each operation to a specific clock cycle and sometimes to a specific hardware unit (like an adder or multiplier) \cite{Ha2017}. This fixed plan, known as static schedule, is built in the hardware control unit usually as a finite state machine (FSM) or a small program \cite{Ha2017}. On the the other hand, \textit{ dynamic scheduling } means the hardware decides during run time which operation to do next or when to start the next task. It makes these decisions based on what data is available, whether other operations have finished, or other conditions at that moment \cite{DeMicheli1994}. Dynamic scheduling is used in systems like out of order processors, dataflow based hardware, or reconfigurable systems that schedule task while they are running \cite{Scheffer2016}
+
+Looking at scheduling from a model based design point of view helps us understand when to use static or dynamic scheduling. Many embedded systems like DSP pipelines can be represented using synchronous dataflow graphs, where data flows steadily through blocks \cite{Ha2017,Scheffer2016}. Figure \ref{sequencing graph} shows a typical Control/Data Flow Graph (CDFG). In this graph, the nodes represent operations, and the arrows show how data or control flows from one operation to another.Because these graphs are regular and predictable, they are easy to analyze. That’s why static scheduling, where all scheduling decisions are made before running, is usually the best choice. It avoids the extra cost and complexity of deciding things during runtime \cite{Ha2017}.
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\linewidth]{Sequencing graph.jpeg}
+    \caption{Sequencing graph \cite{DeMicheli1994}}
+    \label{Sequencing graph}
+\end{figure}
+
+
+static scheduling is especially useful when the system behaves in a fixed and predictable way for example, when each part always produces and consumes the same amount of data. in such cases, you can creat one fixed schedule ahead of time. this kind of schedule makes the system more predictable and esier to test especially when checking that time requiremwnts are met \cite{DeMicheli1994, Ha2017}. 
+
+However when the system's behaviour becomes complex for example, when it includes conditions based on data, if else branches, or loops that run a different number of times then static schedulng may not work well or may not even be possible \cite{Ha2017, Rettberg2006}. in such cases, models like sequance graphs or control data flow graphs (CDFG's) are used to show how data and control signals depend on each other. but with static scheduling, you have to plan for the worst case timing, which can result in idle slock sycle while the system waits unnecessarily. when the system needs to handle asynchronus inputs or data dependent actions where the exact timing is not known ahead of time then dynamic scheduling is required \cite{DeMicheli1994}. it lets the hardware decide what to do next based on actual conditions while running. 
+
+Another way to compair static and dynamic scheduling is by looking at real time requirments. In hard real time systems, it's very important that all tasks finish before their deadlines. static scheduling is a good fit here because it creats a fixed plan based on the worst case time each time each task might take \cite{Ha2017}. this way, you can be sure the system alwasy meets its time limis \cite{Ha2017}.
+
+Dynamic scheduling on the other hand allows tasks to start or finish at different times depending in thesituation. sometimes a task finishes early, which improves performace, but timing can change from one run to another \cite{DeMicheli1994}. This makes it harder to predict and test for the worst case timing. Becasue of this, static scheduling is usally chosen for systems that need predicitable timing, even if it means the hardware is't always used efficiently. Dynamic scheduling is prefered in systems where exact timing isn't critical, and improving average performance is more important \cite{Scheffer2016, Ha2017}
+
+\subsection{Static vs. Dynamic Scheduling Policies}
+
+To further illustrate  the difference, consider scheduling policies ranging from fully static to dynamic\cite{Ha2017}. Under a fuly static policy, the hardware follows a fixed schedule exactly as planned during compile time. even if a task finishes early, the next task waits for its assigned time. This ensures exact timing which is good for real time system, but it can waste time when task finish faster than expected \cite{Ha2017}. A self timed policy keeps the fixed order fo tasks but allows each task to start as soon as the previous one finishes. This improves performance without needing a fully dynamic scheduler\cite{Ha2017}.
+A static assignment policy gives tasks fixed hardware resources but lets the system decide at run time which ready task to run next. The order can chnage a little, which adds a bit of schedulling work but helps hardware better \cite{Ha2017, Rettberg2006}. in a fully dynamic policy, the system ignores the compile time schedule. it decides everything at run time based on which task are ready and which resources are free. ths approach gives the best performance when workloads vary, but it needs complex control logic \cite{Rettberg2006}. 
+
+In summery, static scheduling is easier to control and highly predictable, but it can be less efficient because hardware might sit idle. On the other hand, dynamic scheduliing uses hardware more effectivly and boosts performance in system that dont need striict timing, but it adds extra control logic and makes the design more complex \cite{Ha2017, Rettberg2006}. It depends on the system which one to use. streaming DSP system usally work best with static or self timed schedules irregular or data dependent system like out of order CPUs or adaptive multmedi ppa work better with dynamic scheduling \cite{Scheffer2016}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\linewidth]{Scheduling landscape.jpeg}
+    \caption{Scheduling landscape \cite{Scheffer2016}}
+    \label{Scheduling landscape}
+\end{figure}
+
+As shown in Figure \ref{Scheduling landscape}, fully static scheduling focuses on preddictability and keeps run time controle logic simple but this can leade to unused hardware on the other hand logic simple but this can lead to unused hardware. On the other end, fully dynamic scheduling offers he most flexibility and beter resource use, especially when workloads change a lot, but it comes with more complex xontrol logic. Self timed and static assignment policies sit somewhere in between. they offer a balance providing some flexibility while keeping ontrol overhead lower \cite{Scheffer2016,Ha2017,Rettberg2006}.
+
+\section{Formal Modeling of Dynamic Scheduling}
+
+\subsection{Control Dataflow Graphs and Sequencing Graphs}
+
+formal models help describe operations and how they depend on each other. One common modle is the control data flowgraph (CDFG), which combines both control flow like if else decisions and data dependencies. in this graph, Nodes represent operations and Edges show the order, if one task depends on an other's result, it must wait. When scheduling, we assign a start time to each operation. if an edge from operation  $(u_i \to u_j)$, it means $u_j$ must start after $u_i$ finishes. Thats's written as 
+
+\[
+t_j \geq t_i + d_i  \cite{DeMicheli1994}
+\]
+
+Where $di$ is how long operation $u_i$ takes \cite{DeMicheli1994}. in static schedling, all the $t_i$ times are calculated ahead of time. in dynamic scheduling, the hardware figures out the start times during executon, based on what is ready and what has finished. De Micheli also describes relative scheduling, which is useful when operations take different amounts of time. in this method, the next operation waits for completion signals insted of fixd time. for example 
+
+\[
+t_3 = \max(t_1 + d_1,\; t_2 + d_2) \cite{DeMicheli1994} 
+\]
+
+Here, the system waits for both earlier tasks to finish, and the dely $d_1$ or $d_2$ can chnage depending on input \cite{DeMicheli1994}. When loops and branches (if else) are in the CDG, static scheduling becomes harder. it has to prepare for all possible paths, evn ones that arem't taken. This can waste cycles. Dynamic schedluling solves this by checking conditions at run time , and only running the operations that are actually needed. this makes it more efficient, especially in complex systemy \cite{Rettberg2006, Ha2017}. 
+
+\subsection{Operation Mobility and Scheduling Freedom}
+
+The concept of opertion mobility comes from ASAP (As Soon As Possible) and ALAP (As Late As Possible) Scheduling. it tells us how much freedom or slack we have in deciding when an operation can start
+
+\begin{equation}
+\text{mobility}(u) = t_{\text{ALAP}}(u) - t_{\text{ASAP}}(u),
+\label{eq:mobility}
+\end{equation}
+
+Here, $t_ASAP$($u$)is the earliest time operation $u$ can start, and $t-ALAP$($u$) is the latest it can start without delaying the whole system \cite{DeMicheli1994}. if mobility is zero, the operation must start at a fixed time. if the mobility is greater than zero, it means there's a range of valid start times. in static scheduling, the scheduler picks  one start time from that window often the ASAP time. In dynamic scheduling, the hardware can wait and decide durng execution, using this slack to better manage resources and start operations only when the data and hardwae are ready \cite{Rettberg2006}.
+
+Rettberg's low power high level synthesis (HLS) method uses mobility analysis to group operations into partitions. These groups can be turned on or off at run time, depending on whats nedded. This saves power and adds flexibility, without breaking the systems's correctness \cite{Rettberg2006}. 
+
+Models like petri nets or dataflow graphs work well with dynamic scheduling. in these models, operations only run or fir when their inputs are ready. This fits the idea of letting the system decide the order during execution, based on which data is avilable \cite{Rettberg2006}. 
+
+\section{Hardware Implementation of Dynamic Scheduling}
+To implement dynamic scheduling, the hardware needs more than just simple FSM controller . it also requires extra component like scheduler control logic, arbitration units  to decide which task gets access to shared resources , and flexible data paths that can adjust based on which operations are active \cite{DeMicheli1994, Rettberg2006}. 
+
+\subsection{Scheduler Control Logic and FSMs}
+A dynamic scheduler in hardware can be implemented using eiher centralized or distributed controlmechanisms.
+In centrlized control, a single controller similar to a finite state machine FSM monitors the status of operations by checking signals such as done or ready, and issues control signals at run time. This is similar to how out of order processors or scoreboarding system operation in CPUs \cite{DeMicheli1994}. In the context of high level sysnthesis (HLS), this controllerdoes not rely on a fixed schedule based on clock cycles. insted, it reacts to events like data availabilitiy or operation completion. for example, when loops depend on run time data, the FSM includes transition trigered by condition checks that occur during execution. more advanced scheduling policies, such as round robin or priority vased isssuing, can also be implemented using combinational logic  and registers that evaluate which operations are ready i each cycle \cite{DeMicheli1994, Rettberg2006}.
+
+in contrast, distributed control gives each operation block its own local control logic. these blocks communicate using handshake protocols each block waits for valid input signal such as request and acknowledge and then signals its completion once the operation is done. This approach is common in self timed or asynchronous piplines. A notable example is Rettberg's MACT architecture, which uses self timed local controllers That synchronize using handshake wires \cite{Rettberg2006}. This method reduces the need for a single global scheduler, as decisions are made locally, though arbitration is still required when multiple blocks try access shared resources \cite{Rettberg2006}.
+
+\subsection{Arbitration Units and Resource Control}
+Dynamic Scheduling requires on th efly arbitration whenever multiple operatons ar ready aat the same time but need the same functional unit. This is handled byarbitration units, such as priority encoders or round robin selectors, which decides which operation gets access to the shared resource. The scheduler or resource controlleer contaions this arbitratioon logic to make sure there are no conflicts when several tasks want to use the same hardware at once \cite{DeMicheli1994, Rettberg2006}.
+
+As the number of ready operations increases, the arbitration logic becomes more complex. To manage this, systems often use issue queues or buffers, where ready operations wait util a resource becmes available. These structure helps ensure that operations are executed in the right order without overload the hardware \cite{DeMicheli1994}.
+
+\subsection{Data Path Considerations}
+Data paths in dynamic scheduling must handle changes in timing. Buffers or FIFOs are used tp seperate the timing when data is produced and when it is used, and valid/ready signals are used to manage these transfers \cite{DeMicheli1994,Rettberg2006}. to allow flexible access, register files or memories may need multiple read wire ports or arbitration logic \cite{DeMicheli1994, Scheffer2016}.
+Multiplexers and switches are controlled at run time to send data to the right place, ensuring tht early or late result are handled correctly \cite{Ha2017, DeMicheli1994}.
+
+\subsection{Hardware Support Example}
+Imagine two brances running in parallel to compute $X$ and $Y$, and then xalculate $Z = X + Y$. one branch does multiplication that takes a variable amount of time. In dynamic hahrdware, the system waits for a completion signal from both branches and then triggers he adder as soon as both results are ready without assuming the worst case delay \cite{DeMicheli1994, Rettberg2006}. This is called event drive control, where operations start based on done signal insted of fixing delays \cite{DeMicheli1994, Rettberg2006}. It helps avoid idle time and improve average performing, while still handle slower operationc correctly. 
+
+\section{Example Use Case: Dynamic Scheduling in Action}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\linewidth]{Controlled-Data-Flow-Graph.jpeg}
+    \caption{Controlled Data Flow Graph \cite{Rettberg2006}}
+    \label{Controlled Data Flow Graph}
+\end{figure}
+
+A practical example is the low power HLS of an MPEG-2 decoder using the MACt self timed pipline. ASAP/ALAP analysis was used to find operation mobolity nd operations were grouped into control partions that could be dynamicly turned on or off to save power and adapt to data dependent execution paths \cite{Rettberg2006}. The dynamic scheduler trackes dta token and actives only the path the necessary parts, allowing parallel execution while powering down idle \cite{Rettberg2006}.
+
+A simpler case is data dependent muliplier, it signales fone when finished, and the next operation starts right away thisimproves average performance without needing fixed deadlines \cite{DeMicheli1994, Rettberg2006}. 
+
+After computing operation mobility on the MPEG-2 CDFG, the Power Scheduler transforms the original graph (left in Figure \ref{Controlled Data Flow Graph}) into a low-power scheduled CDFG (right). In the transformed graph, each partition is annotated with enable/disable control based on runtime conditions, so only needed operations are activated. This dynamic CDFG is then used to generate hardware that monitors data tokens and triggers partitions as described above.
+
+\section{Evaluation and Discussion}
+Dynamic scheduling improves average performance and resource use by starting ready tasks right away and adapting to changing workloads. This helps avoid the idle cycles that static schedules often waste \cite{Scheffer2016}. It’s especially useful in multimedia applications with irregular control flow, where performance gains often match the amount of variable or conditional operations. Although dynamic scheduling adds some overhead, it’s worth it when the workload is highly irregular. For regular tasks, static scheduling may be enough. In between, hybrid or quasi-static methods offer a good balance between flexibility and control \cite{Scheffer2016}.
+
+\subsection{Hardware Cost and Complexity}
+Dynamic scheduling increases the area and power needed for control logic, and makes system verification more difficult due to a larger state space and unpredictable execution order. It becomes essential to ensure correctness and avoid deadlocks in all possible scheduling scenarios. This complexity can be reduced using modular or hybrid designs, where high level scheduling remains static while local operations are scheduled dynamically \cite{Ha2017}.
+
+\subsection{Real Time and Predictability Considerations}
+In systems without hard real-time deadlines, dynamic scheduling helps improve throughput and power efficiency \cite{Ha2017,Rettberg2006}. For systems with soft real-time requirements, dynamic schedulers can still be used by incorporating static analysis or dispatch thresholds to ensure deadlines are met \cite{Ha2017,Scheffer2016}. Techniques like scheduler pipelining help maintain high clock speeds even when the control logic is complex \cite{DeMicheli1994}.
+
+
+\subsection{When to Use Dynamic Scheduling}
+Dynamic scheduling is ideal for applications with irregular or data-dependent workloads, systems that do not require strict timing guarantees (such as multimedia), and designs focused on resource sharing or fine-grained power control \cite{Ha2017,Scheffer2016,Rettberg2006}. In contrast, static scheduling is better for extremely high speed or safety critical systems where precise timing must be guaranteed \cite{Ha2017}. Hybrid approaches combine the strengths of both and are well suited for many real-world designs \cite{Scheffer2016,Ha2017}.
+
+
+\section{Conclusion}
+Dynamic scheduling in hardware provides run-time flexibility for deciding the order of operations and allocating resources. This leads to better efficiency and power savings, especially in systems without strict timing constraints. We explored key concepts such as control-dataflow graphs (CDFGs), mobility analysis, and hardware implementations involving FSMs, arbiters, and data path buffers. A real-world use case demonstrated how dynamic scheduling can improve both performance and power efficiency. While it introduces more design complexity and makes verification harder, hybrid methods help balance flexibility and control. As hardware systems become more adaptive and diverse, dynamic scheduling will continue to play a key role alongside static methods to meet new performance and power demands.
+
+
+
+
+
+\section{}
+\section{}
+
+\printbibliography
+
+\vspace{12pt}
+\color{red}
+\end{document}
